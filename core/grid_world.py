@@ -1,0 +1,132 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+class GridWorld:
+    """
+    A 25x25 grid world for the sound-based navigation task.
+    Cell types: 0 - empty, 1 - wall, 2 - agent, 3 - sound source
+    """
+    
+    def __init__(self, width=25, height=25):
+        self.width = width
+        self.height = height
+        self.grid = np.zeros((height, width), dtype=np.int8)
+        
+        # Initialize agent and sound sources
+        self.agent_pos = None
+        self.sound_sources = []
+        self.walls = []
+        
+    def reset(self):
+        """Reset the grid to initial state"""
+        self.grid = np.zeros((self.height, self.width), dtype=np.int8)
+        self.agent_pos = None
+        self.sound_sources = []
+        self.walls = []
+        
+    def get_state(self):
+        """Return the current state of the grid"""
+        return self.grid.copy()
+        
+    def render(self):
+        """Visualize the current state of the grid"""
+        plt.figure(figsize=(8, 8))
+        
+        # Create a copy of the grid for visualization
+        vis_grid = self.grid.copy()
+        
+        # Mark the agent position if exists
+        if self.agent_pos is not None:
+            x, y = self.agent_pos
+            vis_grid[x][y] = 2
+            
+        # Mark sound sources if exist
+        for source in self.sound_sources:
+            vis_grid[source.x][source.y] = 3
+            
+        plt.imshow(vis_grid, cmap='viridis', interpolation='nearest')
+        plt.colorbar(label='Cell Type (0: Empty, 1: Wall, 2: Agent, 3: Sound Source)')
+        plt.title('Grid World Visualization')
+        plt.show()
+        
+    def is_valid_position(self, x, y):
+        """Check if position is within bounds"""
+        return 0 <= x < self.width and 0 <= y < self.height
+        
+    def place_wall(self, x, y):
+        """Place a wall at the given position"""
+        if self.is_valid_position(x, y):
+            self.grid[x][y] = 1
+            self.walls.append((x, y))
+            
+    def place_sound_source(self, sound_source):
+        """Place a sound source on the grid"""
+        if self.is_valid_position(sound_source.x, sound_source.y):
+            self.sound_sources.append(sound_source)
+            
+    def place_agent(self, x, y):
+        """Place the agent at the given position"""
+        if self.is_valid_position(x, y) and self.grid[x][y] == 0:
+            self.agent_pos = (x, y)
+            return True
+        return False
+
+
+class Agent:
+    """
+    Basic agent that can move in the grid world.
+    Actions: up, down, left, right, stay
+    """
+    
+    def __init__(self, start_x=0, start_y=0):
+        self.x = start_x
+        self.y = start_y
+        self.position = (start_x, start_y)
+        
+        # Define possible actions
+        self.actions = {
+            0: 'up',
+            1: 'down', 
+            2: 'left',
+            3: 'right',
+            4: 'stay'
+        }
+        
+        # Direction vectors for movement
+        self.action_vectors = {
+            'up': (-1, 0),
+            'down': (1, 0),
+            'left': (0, -1),
+            'right': (0, 1),
+            'stay': (0, 0)
+        }
+        
+    def move(self, action, grid_world):
+        """Move the agent according to the action in the given grid world"""
+        if isinstance(action, int):
+            action = self.actions[action]
+            
+        if action not in self.action_vectors:
+            raise ValueError(f"Invalid action: {action}")
+            
+        dx, dy = self.action_vectors[action]
+        new_x = self.x + dx
+        new_y = self.y + dy
+        
+        # Check boundaries and collisions with walls
+        if (grid_world.is_valid_position(new_x, new_y) and 
+            grid_world.get_state()[new_x][new_y] != 1):  # Not a wall
+            self.x = new_x
+            self.y = new_y
+            self.position = (self.x, self.y)
+            
+        return self.position
+        
+    def get_position(self):
+        """Get current position of the agent"""
+        return self.position
+        
+    def observe(self):
+        """Basic observation - initially returns empty array as per requirements"""
+        return np.array([])
