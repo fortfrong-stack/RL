@@ -196,19 +196,6 @@ class FindQuietestPlaceTask(TaskEnvironment):
         self.total_reward = 0
         self.found_sources = set()
         
-        # Place sound sources randomly
-        for _ in range(self.num_sources):
-            placed = False
-            while not placed:
-                x, y = np.random.randint(0, self.width), np.random.randint(0, self.height)
-                if (self.grid_world.grid[x][y] == 0 and  # Empty space
-                    (x, y) != self.agent.get_position() if self.agent else True):  # Not on agent
-                    source = SoundSource(x, y, 
-                                       volume=np.random.uniform(0.3, 1.0), 
-                                       frequency=np.random.uniform(0.2, 1.0))
-                    self.grid_world.place_sound_source(source)
-                    placed = True
-        
         # Place agent if not already placed
         if self.agent is None:
             placed = False
@@ -219,12 +206,28 @@ class FindQuietestPlaceTask(TaskEnvironment):
                     self.grid_world.place_agent(x, y)
                     placed = True
         
-        # Reset tracking variables
-        self.sound_map = None
-        self.quietest_cell = None
-        self.min_intensity = float('inf')
+        # Place sound sources randomly after agent placement
+        for _ in range(self.num_sources):
+            placed = False
+            while not placed:
+                x, y = np.random.randint(0, self.width), np.random.randint(0, self.height)
+                if (self.grid_world.grid[x][y] == 0 and  # Empty space
+                    (x, y) != self.agent.get_position()):  # Not on agent
+                    source = SoundSource(x, y, 
+                                       volume=np.random.uniform(0.3, 1.0), 
+                                       frequency=np.random.uniform(0.2, 1.0))
+                    self.grid_world.place_sound_source(source)
+                    placed = True
         
-        return self.get_observation()
+        # Compute sound map and find quietest cell immediately
+        self.sound_map = self.grid_world.compute_sound_map()
+        self.min_intensity = np.min(self.sound_map)
+        quietest_positions = np.where(self.sound_map == self.min_intensity)
+        if len(quietest_positions[0]) > 0:
+            # Pick the first quietest position
+            self.quietest_cell = (quietest_positions[0][0], quietest_positions[1][0])
+        
+        return self.get_observation(self.sound_map)
         
     def calculate_reward(self, old_pos, new_pos, sound_map):
         """Calculate reward for finding quietest place task."""
@@ -235,14 +238,6 @@ class FindQuietestPlaceTask(TaskEnvironment):
         
         # Calculate reward as negative of current intensity
         reward = -current_intensity
-        
-        # Find the quietest cell in the map if not already calculated
-        if self.quietest_cell is None:
-            self.min_intensity = np.min(sound_map)
-            quietest_positions = np.where(sound_map == self.min_intensity)
-            if len(quietest_positions[0]) > 0:
-                # Pick the first quietest position
-                self.quietest_cell = (quietest_positions[0][0], quietest_positions[1][0])
         
         # Check if agent is at the quietest cell
         if self.quietest_cell and new_pos == self.quietest_cell:
