@@ -264,7 +264,13 @@ class FollowMovingSourceTask(TaskEnvironment):
         
     def reset(self):
         """Reset the environment to initial state."""
-        obs = super().reset()
+        # First call parent reset but don't return the observation yet
+        # because agent doesn't exist yet
+        self.grid_world.reset()
+        self.current_step = 0
+        self.done = False
+        self.total_reward = 0
+        self.found_sources = set()
         
         # Place a single moving source
         placed = False
@@ -285,7 +291,8 @@ class FollowMovingSourceTask(TaskEnvironment):
                 self.grid_world.place_agent(x, y)
                 placed = True
                 
-        return obs
+        # Now return the observation with the agent in place
+        return self.get_observation()
     
     def calculate_reward(self, old_pos, new_pos, sound_map):
         """Calculate reward for following moving source task."""

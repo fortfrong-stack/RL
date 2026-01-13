@@ -111,7 +111,9 @@ class Agent:
         
     def move(self, action, grid_world):
         """Move the agent according to the action in the given grid world"""
-        if isinstance(action, int):
+        # Handle numpy integers as well as Python integers
+        import numbers
+        if isinstance(action, numbers.Integral):
             action = self.actions[action]
             
         if action not in self.action_vectors:
