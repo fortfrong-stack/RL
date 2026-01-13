@@ -1,4 +1,49 @@
 ```
+# Compiled Python files
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Dependency directories
+venv/
+.venv/
+.env
+.env.local
+.env.*
+
+# Build/dist directories
+build/
+dist/
+*.egg-info/
+
+# Testing
+.coverage
+htmlcov/
+.coverage.*
+.noserc
+.tox/
+
+# Logs
+*.log
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+htmlcov/
+
+# Python specific
+*.py[cod]
+*$py.class
+*.so
+.Python
 ```
