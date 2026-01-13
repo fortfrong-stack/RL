@@ -8,15 +8,15 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + '/..')
 
 try:
-    from ..utils.environment_gen import generate_random_environment, manual_environment_setup
-    from ..rl.dqn import DQNAgentWrapper
-    from ..utils.visualization import PygameVisualizer
-    from ..core.tasks import create_task_environment
-except ImportError:
     from utils.environment_gen import generate_random_environment, manual_environment_setup
     from rl.dqn import DQNAgentWrapper
     from utils.visualization import PygameVisualizer
     from core.tasks import create_task_environment
+except ImportError:
+    from ..utils.environment_gen import generate_random_environment, manual_environment_setup
+    from ..rl.dqn import DQNAgentWrapper
+    from ..utils.visualization import PygameVisualizer
+    from ..core.tasks import create_task_environment
 
 
 def get_observation_size(task_type):
@@ -212,14 +212,14 @@ def main_menu():
             try:
                 train_choice = int(input("Your choice (1-2): "))
                 if train_choice == 1:
-                    from ..rl.training import train_all_tasks
+                    from rl.training import train_all_tasks
                     episodes = input("Enter number of episodes per task (default 1000): ")
                     episodes = int(episodes) if episodes.strip() else 1000
                     train_all_tasks(num_episodes=episodes)
                 elif train_choice == 2:
                     task_num = int(input("Enter task number to train (1-3): "))
                     if task_num in [1, 2, 3]:
-                        from ..rl.training import train_task
+                        from rl.training import train_task
                         episodes = input("Enter number of episodes (default 1000): ")
                         episodes = int(episodes) if episodes.strip() else 1000
                         print(f"Training agent for Task {task_num}...")

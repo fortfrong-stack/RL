@@ -1,1 +1,4 @@
-Nothing should be ignored based on the provided file changes. The modification of 'interface/console_ui.py' is a source code file that should be tracked in version control.
+```
+__pycache__/
+*.pyc
+```
