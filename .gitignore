@@ -1,10 +1,1 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-.env/
-.venv/
+Nothing should be ignored based on the provided file changes. The only modified file is 'rl/training.py', which is a source code file and should not be added to .gitignore.

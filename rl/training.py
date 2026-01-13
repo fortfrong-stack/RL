@@ -15,6 +15,7 @@ import os
 import pickle
 import json
 from datetime import datetime
+from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + '/..')
 
@@ -216,7 +217,7 @@ def train_task(task_type, num_episodes=1000, save_model=True, model_path=None, s
         os.makedirs("stats", exist_ok=True)
     
     # Training loop
-    for episode in range(num_episodes):
+    for episode in tqdm(range(num_episodes), desc=f"Training Task {task_type}", unit="episode"):
         # Generate a random environment for this episode
         env = generate_random_environment(task_type)
         
@@ -316,7 +317,7 @@ def evaluate_agent(agent, task_type, num_episodes=10, render=False):
             print(f"Could not initialize visualization: {e}")
             render = False  # Disable rendering if initialization fails
     
-    for episode in range(num_episodes):
+    for episode in tqdm(range(num_episodes), desc=f"Evaluation Task {task_type}", unit="episode"):
         # Generate a random environment for evaluation
         env = generate_random_environment(task_type)
         
@@ -391,7 +392,7 @@ def train_all_tasks(num_episodes=1000):
     """
     print("Starting training for all tasks...")
     
-    for task_type in [1, 2, 3]:
+    for task_type in tqdm([1, 2, 3], desc="Overall Training Progress", unit="task"):
         print(f"\nTraining for Task {task_type}...")
         agent, stats = train_task(task_type, num_episodes=num_episodes)
         
