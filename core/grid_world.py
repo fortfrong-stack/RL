@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from core.sound_source import Wall, SoundSource, propagate_sound
+from utils.audio_processing import get_audio_observation_features
 
 
 class GridWorld:
@@ -134,8 +135,40 @@ class Agent:
         """Get current position of the agent"""
         return self.position
         
-    def observe(self, sound_map=None):
-        """Observation includes sound intensity at current position"""
+    def observe(self, sound_map=None, grid_world=None):
+        """
+        Audio observation for the agent.
+        Returns audio features extracted from the sound at the agent's position.
+        """
         if sound_map is not None:
-            return sound_map[self.x][self.y]
-        return 0.0  # Default if no sound map provided
+            intensity = sound_map[self.x][self.y]
+            
+            # Determine frequency content from nearby sound sources
+            frequency_content = self._get_frequency_content_at_position(grid_world)
+            
+            # Get audio observation features
+            return get_audio_observation_features(intensity, frequency_content)
+        else:
+            # Return default audio features when no sound map is available
+            return get_audio_observation_features(0.0, 0.5)  # Default: no intensity, medium frequency
+
+    def _get_frequency_content_at_position(self, grid_world):
+        """
+        Get the dominant frequency content at the agent's position based on nearby sources.
+        This is a simplified approach - in a real implementation, we might consider
+        the contribution of multiple sources based on their distance and volume.
+        """
+        if grid_world is None or not grid_world.sound_sources:
+            return 0.5  # Default frequency content
+        
+        # Find the closest sound source to determine frequency content
+        min_distance = float('inf')
+        closest_source_freq = 0.5
+        
+        for source in grid_world.sound_sources:
+            distance = abs(self.x - source.x) + abs(self.y - source.y)  # Manhattan distance
+            if distance < min_distance:
+                min_distance = distance
+                closest_source_freq = source.frequency
+                
+        return closest_source_freq
