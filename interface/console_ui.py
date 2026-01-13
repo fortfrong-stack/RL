@@ -205,8 +205,32 @@ def main_menu():
         if choice == 1:
             test_interface()
         elif choice == 2:
-            print("Training interface would go here.")
-            # In a real implementation, this would call training functions
+            print("\nSelect training option:")
+            print("1. Train all tasks")
+            print("2. Train specific task")
+            
+            try:
+                train_choice = int(input("Your choice (1-2): "))
+                if train_choice == 1:
+                    from ..rl.training import train_all_tasks
+                    episodes = input("Enter number of episodes per task (default 1000): ")
+                    episodes = int(episodes) if episodes.strip() else 1000
+                    train_all_tasks(num_episodes=episodes)
+                elif train_choice == 2:
+                    task_num = int(input("Enter task number to train (1-3): "))
+                    if task_num in [1, 2, 3]:
+                        from ..rl.training import train_task
+                        episodes = input("Enter number of episodes (default 1000): ")
+                        episodes = int(episodes) if episodes.strip() else 1000
+                        print(f"Training agent for Task {task_num}...")
+                        agent = train_task(task_type=task_num, num_episodes=episodes)
+                        print(f"Training completed for Task {task_num}")
+                    else:
+                        print("Invalid task number.")
+                else:
+                    print("Invalid choice.")
+            except ValueError:
+                print("Invalid input.")
         elif choice == 3:
             print("Goodbye!")
             break
