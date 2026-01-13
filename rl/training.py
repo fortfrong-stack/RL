@@ -18,7 +18,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + '/..')
 
 try:
     from .dqn import DQNAgentWrapper
-    from .replay_buffer import ReplayBuffer
     from ..utils.environment_gen import generate_random_environment
     from ..core.tasks import create_task_environment
 except ImportError:
