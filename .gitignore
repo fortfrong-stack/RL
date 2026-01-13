@@ -1,18 +1,10 @@
-```
-# Compiled Python files
-*.pyc
+# Python
 __pycache__/
-
-# Dependencies
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
 venv/
+.env/
 .venv/
-.env
-.env.local
-
-# Logs
-*.log
-
-# Backup files
-*.bak
-*~
-```
