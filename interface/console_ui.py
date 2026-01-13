@@ -101,21 +101,15 @@ def test_interface():
             return
     
     print(f"\nEnvironment created for Task {task}. Starting simulation...")
-    print("Controls: w(up), s(down), a(left), d(right), x(stay), q(quit)")
     
-    # Ask if user wants to use trained agent or manual control
-    agent_choice = input("\nUse trained agent? (y/n): ").lower()
-    
-    if agent_choice == 'y':
-        try:
-            agent = load_trained_agent(task)
-            print("Loaded trained agent.")
-        except Exception as e:
-            print(f"Could not load trained agent: {e}")
-            print("Switching to manual control.")
-            agent = None
-    else:
-        agent = None
+    # Automatically use trained agent (remove manual control option)
+    try:
+        agent = load_trained_agent(task)
+        print("Loaded trained agent.")
+    except Exception as e:
+        print(f"Could not load trained agent: {e}")
+        print("Exiting since manual control has been removed.")
+        return
     
     # Initialize visualization
     viz = PygameVisualizer()
@@ -135,29 +129,9 @@ def test_interface():
         print(f"\nStep: {step}, Position: {env.agent.get_position()}, "
               f"Reward: {env.total_reward:.2f}")
         
-        if agent:
-            # Use trained agent
-            action = agent.act(obs, training=False)
-            print(f"Agent chose action: {action} ({get_action_name(action)})")
-        else:
-            # Manual control
-            key = input("Enter action (w/a/s/d/x/q): ").lower()
-            
-            if key == 'q':
-                break
-            elif key == 'w':
-                action = 0  # up
-            elif key == 's':
-                action = 1  # down
-            elif key == 'a':
-                action = 2  # left
-            elif key == 'd':
-                action = 3  # right
-            elif key == 'x':
-                action = 4  # stay
-            else:
-                print("Invalid key. Using stay action.")
-                action = 4
+        # Use trained agent
+        action = agent.act(obs, training=False)
+        print(f"Agent chose action: {action} ({get_action_name(action)})")
         
         # Take action
         obs, reward, done = env.step(action)
