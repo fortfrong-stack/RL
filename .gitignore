@@ -1,1 +1,10 @@
-Nothing should be ignored based on the provided file changes. The only modified file is `interface/console_ui.py`, which is a Python source file and should not be ignored.
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env/
+.venv/
