@@ -123,8 +123,12 @@ def test_interface():
     
     running = True
     while running and not env.done and step < env.max_steps:
-        # Update visualization
-        viz.update(env)
+        try:
+            # Update visualization
+            viz.update(env)
+        except KeyboardInterrupt:
+            print("\nVisualization window closed or Escape pressed. Ending simulation...")
+            break
         
         print(f"\nStep: {step}, Position: {env.agent.get_position()}, "
               f"Reward: {env.total_reward:.2f}")

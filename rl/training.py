@@ -299,12 +299,22 @@ def evaluate_agent(agent, task_type, num_episodes=10, render=False):
         agent: Trained DQNAgentWrapper
         task_type: Type of task (1, 2, or 3)
         num_episodes: Number of episodes to evaluate
-        render: Whether to render the environment (not implemented yet)
+        render: Whether to render the environment visually
     
     Returns:
         Average total reward across episodes
     """
     total_rewards = []
+    
+    # Initialize visualization if requested
+    viz = None
+    if render:
+        try:
+            from utils.visualization import PygameVisualizer
+            viz = PygameVisualizer()
+        except Exception as e:
+            print(f"Could not initialize visualization: {e}")
+            render = False  # Disable rendering if initialization fails
     
     for episode in range(num_episodes):
         # Generate a random environment for evaluation
@@ -317,6 +327,16 @@ def evaluate_agent(agent, task_type, num_episodes=10, render=False):
         step_count = 0
         
         while not env.done and step_count < env.max_steps:
+            # Update visualization if enabled
+            if render and viz:
+                try:
+                    viz.update(env)
+                except KeyboardInterrupt:
+                    print("\nVisualization window closed or Escape pressed. Ending evaluation...")
+                    if viz:
+                        viz.close()
+                    return np.mean(total_rewards) if total_rewards else 0
+            
             # Select action (no exploration during evaluation)
             action = agent.act(state, training=False)
             
@@ -328,6 +348,10 @@ def evaluate_agent(agent, task_type, num_episodes=10, render=False):
         
         total_rewards.append(total_reward)
         print(f"Evaluation - Episode {episode + 1}, Total Reward: {total_reward:.2f}, Steps: {step_count}")
+    
+    # Close visualization if it was opened
+    if render and viz:
+        viz.close()
     
     avg_reward = np.mean(total_rewards)
     print(f"Average Reward over {num_episodes} episodes: {avg_reward:.2f}")

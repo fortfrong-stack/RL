@@ -113,6 +113,16 @@ class PygameVisualizer:
         Args:
             env: Current environment state
         """
+        # Handle pygame events to keep window responsive
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                raise KeyboardInterrupt("Pygame window closed")
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    raise KeyboardInterrupt("Escape key pressed")
+        
         self.draw_grid(env)
         pygame.display.flip()
         self.clock.tick(10)  # Limit to 10 FPS
@@ -180,19 +190,16 @@ def test_visualization():
     step = 0
     
     while running and step < 100:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    running = False
-        
+        try:
+            # Update visualization
+            viz.update(env)
+        except KeyboardInterrupt:
+            print("\nVisualization window closed or Escape pressed. Ending test...")
+            break
+
         # Take a random action
         action = np.random.randint(0, 5)
         obs, reward, done = env.step(action)
-        
-        # Update visualization
-        viz.update(env)
         
         if done:
             env.reset()
