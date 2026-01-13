@@ -1,31 +1,8 @@
-```
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+# Examples 1 and 2 demonstrate that only source/config files were modified, so no .gitignore rules are needed
 
-# Logs and temp files
-*.log
-*.tmp
-*.swp
+# Source files and documentation that were modified
+# CHECKLIST.MD - documentation file
+# rl/training.py - Python source file
 
-# Environment
-.env
-.env.local
-*.env.*
-
-# Editors
-.vscode/
-.idea/
-
-# Dependencies
-.venv/
-venv/
-node_modules/
-
-# Build artifacts
-dist/
-build/
-target/
-```
+# No build artifacts, dependencies, or temporary files detected in changes
+# Therefore, no additional ignore rules are required
