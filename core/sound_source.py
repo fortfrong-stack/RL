@@ -1,5 +1,11 @@
+"""
+Sound source module for the grid world environment.
+Contains classes and functions for sound propagation simulation.
+"""
+
 import random
 import numpy as np
+from typing import List, Tuple
 
 
 class SoundSource:
@@ -7,16 +13,27 @@ class SoundSource:
     Class representing a sound source in the grid world.
     """
     
-    def __init__(self, x, y, volume=0.5, frequency=0.5):
+    def __init__(self, x: int, y: int, volume: float = 0.5, frequency: float = 0.5):
+        """
+        Initialize a sound source.
+        
+        Args:
+            x: X coordinate of the source
+            y: Y coordinate of the source
+            volume: Volume of the sound (0.1-1.0), determines propagation distance
+            frequency: Frequency of the sound (0.1-1.0), affects emission probability
+        """
         self.x = x
         self.y = y
         self.volume = volume  # Determines the radius of sound propagation (0.1-1.0)
         self.frequency = frequency  # Probability of emitting sound per step (0.1-1.0)
         
-    def emit_sound(self):
+    def emit_sound(self) -> bool:
         """
         Generate sound signal with given probability based on frequency.
-        Returns True if sound is emitted, False otherwise.
+        
+        Returns:
+            True if sound is emitted, False otherwise.
         """
         return random.random() < self.frequency
 
@@ -26,20 +43,31 @@ class Wall:
     Class representing a wall in the grid world with permeability properties.
     """
     
-    def __init__(self, x, y, permeability=0.5):
+    def __init__(self, x: int, y: int, permeability: float = 0.5):
+        """
+        Initialize a wall.
+        
+        Args:
+            x: X coordinate of the wall
+            y: Y coordinate of the wall
+            permeability: Permeability of the wall (0.25-1.0), affects sound propagation
+        """
         self.x = x
         self.y = y
         self.permeability = max(0.25, min(1.0, permeability))  # Clamp between 0.25 and 1.0
         
-    def is_passable_by_agent(self):
+    def is_passable_by_agent(self) -> bool:
         """
         Check if the wall is passable by the agent.
         Currently, walls are not passable by agents (this could be changed in future).
+        
+        Returns:
+            True if passable, False otherwise
         """
         return False
 
 
-def propagate_sound(grid, sources, walls):
+def propagate_sound(grid: np.ndarray, sources: List[SoundSource], walls: List[Wall]) -> np.ndarray:
     """
     Propagate sound through the grid with more realistic physics.
     
@@ -93,7 +121,8 @@ def propagate_sound(grid, sources, walls):
     return sound_map
 
 
-def calculate_path_attenuation(start_x, start_y, end_x, end_y, grid, walls, frequency):
+def calculate_path_attenuation(start_x: int, start_y: int, end_x: int, end_y: int, 
+                              grid: np.ndarray, walls: List[Wall], frequency: float) -> float:
     """
     Calculate attenuation along the path from source to target considering obstacles.
     Uses a simplified ray-tracing approach to account for obstacles in the path.

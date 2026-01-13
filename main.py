@@ -5,24 +5,33 @@ Main entry point for the sound-based navigation system.
 import argparse
 import sys
 import os
+from typing import Optional
 
+# Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from utils.environment_gen import generate_random_environment, manual_environment_setup
-from rl.dqn import DQNAgentWrapper
 from rl.training import train_task, evaluate_agent, train_all_tasks
-from interface.console_ui import test_interface
-from utils.visualization import PygameVisualizer
+from interface.console_ui import main_menu
 
 
-def get_observation_size(task_type):
-    """Get the size of the observation vector for a given task type."""
+def get_observation_size(task_type: int) -> int:
+    """
+    Get the size of the observation vector for a given task type.
+    
+    Args:
+        task_type: Type of task (1, 2, or 3)
+        
+    Returns:
+        Size of the observation vector
+    """
     from utils.audio_processing import get_audio_observation_features
     sample_obs = get_audio_observation_features(0.5, 0.5)
     return len(sample_obs)
 
 
 def main():
+    """Main function to handle command-line arguments and execute the appropriate mode."""
     parser = argparse.ArgumentParser(description='Sound-Based Navigation System')
     parser.add_argument('--mode', choices=['train', 'test'], required=True,
                         help='Mode: train or test')
@@ -39,7 +48,7 @@ def main():
     
     if args.mode == 'train':
         print(f"Training agent for Task {args.task}...")
-        agent = train_task(
+        agent, _ = train_task(
             task_type=args.task,
             num_episodes=args.episodes,
             model_path=args.model_path
@@ -50,13 +59,12 @@ def main():
         
     elif args.mode == 'test':
         print("Launching test interface...")
-        test_interface()
+        main_menu()
 
 
 if __name__ == "__main__":
     # If no command line arguments, launch the main menu
     if len(sys.argv) == 1:
-        from interface.console_ui import main_menu
         main_menu()
     else:
         main()

@@ -10,7 +10,14 @@ class GridWorld:
     Cell types: 0 - empty, 1 - wall, 2 - agent, 3 - sound source
     """
     
-    def __init__(self, width=25, height=25):
+    def __init__(self, width: int = 25, height: int = 25):
+        """
+        Initialize the grid world.
+        
+        Args:
+            width: Width of the grid (default 25)
+            height: Height of the grid (default 25)
+        """
         self.width = width
         self.height = height
         self.grid = np.zeros((height, width), dtype=np.int8)
@@ -20,18 +27,23 @@ class GridWorld:
         self.sound_sources = []
         self.wall_objects = []  # Store Wall objects instead of just coordinates
         
-    def reset(self):
+    def reset(self) -> None:
         """Reset the grid to initial state"""
         self.grid = np.zeros((self.height, self.width), dtype=np.int8)
         self.agent_pos = None
         self.sound_sources = []
         self.wall_objects = []
         
-    def get_state(self):
-        """Return the current state of the grid"""
+    def get_state(self) -> np.ndarray:
+        """
+        Return the current state of the grid.
+        
+        Returns:
+            Copy of the grid state
+        """
         return self.grid.copy()
         
-    def render(self):
+    def render(self) -> None:
         """Visualize the current state of the grid"""
         plt.figure(figsize=(8, 8))
         
@@ -52,31 +64,66 @@ class GridWorld:
         plt.title('Grid World Visualization')
         plt.show()
         
-    def is_valid_position(self, x, y):
-        """Check if position is within bounds"""
+    def is_valid_position(self, x: int, y: int) -> bool:
+        """
+        Check if position is within bounds.
+        
+        Args:
+            x: X coordinate
+            y: Y coordinate
+            
+        Returns:
+            True if position is valid, False otherwise
+        """
         return 0 <= x < self.width and 0 <= y < self.height
         
-    def place_wall(self, x, y, permeability=0.5):
-        """Place a wall at the given position with permeability"""
+    def place_wall(self, x: int, y: int, permeability: float = 0.5) -> None:
+        """
+        Place a wall at the given position with permeability.
+        
+        Args:
+            x: X coordinate
+            y: Y coordinate
+            permeability: Permeability of the wall (default 0.5)
+        """
         if self.is_valid_position(x, y):
             self.grid[x][y] = 1
             wall = Wall(x, y, permeability)
             self.wall_objects.append(wall)
             
-    def place_sound_source(self, sound_source):
-        """Place a sound source on the grid"""
+    def place_sound_source(self, sound_source: 'SoundSource') -> None:
+        """
+        Place a sound source on the grid.
+        
+        Args:
+            sound_source: SoundSource object to place
+        """
         if self.is_valid_position(sound_source.x, sound_source.y):
             self.sound_sources.append(sound_source)
             
-    def place_agent(self, x, y):
-        """Place the agent at the given position"""
+    def place_agent(self, x: int, y: int) -> bool:
+        """
+        Place the agent at the given position.
+        
+        Args:
+            x: X coordinate
+            y: Y coordinate
+            
+        Returns:
+            True if placement was successful, False otherwise
+        """
         if self.is_valid_position(x, y) and self.grid[x][y] == 0:
             self.agent_pos = (x, y)
             return True
         return False
     
-    def compute_sound_map(self):
-        """Compute the sound propagation map based on sources and walls"""
+    def compute_sound_map(self) -> np.ndarray:
+        """
+        Compute the sound propagation map based on sources and walls.
+        
+        Returns:
+            2D numpy array representing sound intensity at each cell
+        """
         return propagate_sound(self.grid, self.sound_sources, self.wall_objects)
 
 
@@ -86,7 +133,14 @@ class Agent:
     Actions: up, down, left, right, stay
     """
     
-    def __init__(self, start_x=0, start_y=0):
+    def __init__(self, start_x: int = 0, start_y: int = 0):
+        """
+        Initialize the agent.
+        
+        Args:
+            start_x: Starting X coordinate (default 0)
+            start_y: Starting Y coordinate (default 0)
+        """
         self.x = start_x
         self.y = start_y
         self.position = (start_x, start_y)
@@ -109,8 +163,17 @@ class Agent:
             'stay': (0, 0)
         }
         
-    def move(self, action, grid_world):
-        """Move the agent according to the action in the given grid world"""
+    def move(self, action: int, grid_world: 'GridWorld') -> tuple:
+        """
+        Move the agent according to the action in the given grid world.
+        
+        Args:
+            action: Action index (0-4) or action name ('up', 'down', etc.)
+            grid_world: GridWorld instance to move in
+            
+        Returns:
+            New position of the agent as (x, y) tuple
+        """
         # Handle numpy integers as well as Python integers
         import numbers
         if isinstance(action, numbers.Integral):
@@ -136,14 +199,26 @@ class Agent:
             
         return self.position
         
-    def get_position(self):
-        """Get current position of the agent"""
+    def get_position(self) -> tuple:
+        """
+        Get current position of the agent.
+        
+        Returns:
+            Current position as (x, y) tuple
+        """
         return self.position
         
-    def observe(self, sound_map=None, grid_world=None):
+    def observe(self, sound_map: np.ndarray = None, grid_world: 'GridWorld' = None) -> np.ndarray:
         """
         Audio observation for the agent.
         Returns audio features extracted from the sound at the agent's position.
+        
+        Args:
+            sound_map: Sound intensity map (optional)
+            grid_world: GridWorld instance (optional)
+            
+        Returns:
+            Audio observation features as numpy array
         """
         if sound_map is not None:
             intensity = sound_map[self.x][self.y]
@@ -157,10 +232,16 @@ class Agent:
             # Return default audio features when no sound map is available
             return get_audio_observation_features(0.0, 0.5)  # Default: no intensity, medium frequency
 
-    def _get_frequency_content_at_position(self, grid_world):
+    def _get_frequency_content_at_position(self, grid_world: 'GridWorld') -> float:
         """
         Get the dominant frequency content at the agent's position based on nearby sources.
         This considers both the distance and volume of sources to determine which one is loudest.
+        
+        Args:
+            grid_world: GridWorld instance to analyze
+            
+        Returns:
+            Dominant frequency content (0.0-1.0)
         """
         if grid_world is None or not grid_world.sound_sources:
             return 0.5  # Default frequency content
