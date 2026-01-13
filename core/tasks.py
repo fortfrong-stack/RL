@@ -6,8 +6,18 @@ Implementation of the three tasks for Stage 4:
 """
 
 import numpy as np
-from core.grid_world import GridWorld, Agent
-from core.sound_source import SoundSource
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + '/..')
+
+try:
+    # When imported as part of the package
+    from .grid_world import GridWorld, Agent
+    from .sound_source import SoundSource
+except ImportError:
+    # When run directly
+    from core.grid_world import GridWorld, Agent
+    from core.sound_source import SoundSource
 
 
 class TaskEnvironment:
