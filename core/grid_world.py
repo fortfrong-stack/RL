@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from core.sound_source import Wall, SoundSource, propagate_sound
 
 
 class GridWorld:
@@ -16,14 +17,14 @@ class GridWorld:
         # Initialize agent and sound sources
         self.agent_pos = None
         self.sound_sources = []
-        self.walls = []
+        self.wall_objects = []  # Store Wall objects instead of just coordinates
         
     def reset(self):
         """Reset the grid to initial state"""
         self.grid = np.zeros((self.height, self.width), dtype=np.int8)
         self.agent_pos = None
         self.sound_sources = []
-        self.walls = []
+        self.wall_objects = []
         
     def get_state(self):
         """Return the current state of the grid"""
@@ -54,11 +55,12 @@ class GridWorld:
         """Check if position is within bounds"""
         return 0 <= x < self.width and 0 <= y < self.height
         
-    def place_wall(self, x, y):
-        """Place a wall at the given position"""
+    def place_wall(self, x, y, permeability=0.5):
+        """Place a wall at the given position with permeability"""
         if self.is_valid_position(x, y):
             self.grid[x][y] = 1
-            self.walls.append((x, y))
+            wall = Wall(x, y, permeability)
+            self.wall_objects.append(wall)
             
     def place_sound_source(self, sound_source):
         """Place a sound source on the grid"""
@@ -71,6 +73,10 @@ class GridWorld:
             self.agent_pos = (x, y)
             return True
         return False
+    
+    def compute_sound_map(self):
+        """Compute the sound propagation map based on sources and walls"""
+        return propagate_sound(self.grid, self.sound_sources, self.wall_objects)
 
 
 class Agent:
@@ -115,6 +121,7 @@ class Agent:
         new_y = self.y + dy
         
         # Check boundaries and collisions with walls
+        # We need to ensure the target position is not a wall in the grid
         if (grid_world.is_valid_position(new_x, new_y) and 
             grid_world.get_state()[new_x][new_y] != 1):  # Not a wall
             self.x = new_x
@@ -127,6 +134,8 @@ class Agent:
         """Get current position of the agent"""
         return self.position
         
-    def observe(self):
-        """Basic observation - initially returns empty array as per requirements"""
-        return np.array([])
+    def observe(self, sound_map=None):
+        """Observation includes sound intensity at current position"""
+        if sound_map is not None:
+            return sound_map[self.x][self.y]
+        return 0.0  # Default if no sound map provided
