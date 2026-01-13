@@ -252,11 +252,17 @@ def train_task(task_type, num_episodes=1000, save_model=True, model_path=None, s
         if hasattr(env, 'task'):
             # Check if the task was completed successfully
             if task_type == 1:  # Find all sources
-                success = env.task.all_sources_found if hasattr(env.task, 'all_sources_found') else False
+                success = len(env.task.found_sources) == len(env.grid_world.sound_sources)
             elif task_type == 2:  # Find quietest place
-                success = env.task.is_at_quietest_place if hasattr(env.task, 'is_at_quietest_place') else False
+                if env.task.quietest_cell:
+                    agent_pos = env.agent.get_position()
+                    success = agent_pos == env.task.quietest_cell
             elif task_type == 3:  # Follow moving source
-                success = env.task.caught_source if hasattr(env.task, 'caught_source') else False
+                if env.grid_world.sound_sources:
+                    source = env.grid_world.sound_sources[0]
+                    agent_x, agent_y = env.agent.get_position()
+                    distance = abs(agent_x - source.x) + abs(agent_y - source.y)
+                    success = distance < 2  # Close enough to "catch" the source
         
         # Add episode data to statistics
         stats.add_episode_data(total_reward, step_count, success, agent.epsilon)

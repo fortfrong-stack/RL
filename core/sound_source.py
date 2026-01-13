@@ -61,7 +61,7 @@ def propagate_sound(grid, sources, walls):
             
             # Initialize queue for BFS-like propagation
             queue = [(source.x, source.y, source.volume)]
-            visited = set()
+            visited = set([(source.x, source.y)])  # Track visited cells to avoid duplicates
             
             while queue:
                 x, y, intensity = queue.pop(0)
@@ -70,13 +70,9 @@ def propagate_sound(grid, sources, walls):
                 if not (0 <= x < height and 0 <= y < width and intensity > 0.01):
                     continue
                 
-                if (x, y) in visited:
-                    continue
-                
                 # Add sound intensity to this cell
                 current_intensity = sound_map[x][y]
                 sound_map[x][y] = current_intensity + intensity
-                visited.add((x, y))
                 
                 # Continue propagation to neighbors
                 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:  # 4 directions
@@ -96,6 +92,7 @@ def propagate_sound(grid, sources, walls):
                                 
                         if new_intensity > 0.01:  # Only continue if significant
                             queue.append((nx, ny, new_intensity))
+                            visited.add((nx, ny))
     
     # Apply wall permeability effects to sound map
     for wall in walls:

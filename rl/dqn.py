@@ -235,7 +235,7 @@ class DQNAgentWrapper:
             
         if len(self.memory) < self.batch_size:
             return
-        
+            
         # Sample batch from memory
         states, actions, rewards, next_states, dones = self.memory.sample(self.batch_size)
         
@@ -259,6 +259,8 @@ class DQNAgentWrapper:
         # Optimize
         self.optimizer.zero_grad()
         loss.backward()
+        # Gradient clipping to prevent exploding gradients
+        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=1.0)
         self.optimizer.step()
         
         # Decay epsilon
@@ -269,6 +271,9 @@ class DQNAgentWrapper:
         self.steps += 1
         if self.steps % self.target_update_freq == 0:
             self.update_target_network()
+        
+        # Return the loss value
+        return loss.item()
     
     def save(self, filepath):
         """

@@ -124,12 +124,15 @@ class Agent:
         new_y = self.y + dy
         
         # Check boundaries and collisions with walls
-        # We need to ensure the target position is not a wall in the grid
+        # We need to check the actual grid state, not a copy
         if (grid_world.is_valid_position(new_x, new_y) and 
-            grid_world.get_state()[new_x][new_y] != 1):  # Not a wall
+            grid_world.grid[new_x][new_y] != 1):  # Not a wall
             self.x = new_x
             self.y = new_y
             self.position = (self.x, self.y)
+            
+            # Update the agent position in the grid world
+            grid_world.agent_pos = (self.x, self.y)
             
         return self.position
         
