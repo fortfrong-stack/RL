@@ -41,7 +41,7 @@ class Wall:
 
 def propagate_sound(grid, sources, walls):
     """
-    Propagate sound through the grid with wavefront propagation algorithm.
+    Propagate sound through the grid with more realistic physics.
     
     Args:
         grid: The grid world (for checking obstacles)
@@ -56,47 +56,95 @@ def propagate_sound(grid, sources, walls):
     
     for source in sources:
         if source.emit_sound():
-            # Start propagation from the source position
+            # Use a more realistic propagation considering distance from source
             max_distance = int(source.volume * 20)  # Adjust max distance based on volume
             
-            # Initialize queue for BFS-like propagation
-            queue = [(source.x, source.y, source.volume)]
-            visited = set([(source.x, source.y)])  # Track visited cells to avoid duplicates
-            
-            while queue:
-                x, y, intensity = queue.pop(0)
-                
-                # Check bounds and minimum intensity
-                if not (0 <= x < height and 0 <= y < width and intensity > 0.01):
-                    continue
-                
-                # Add sound intensity to this cell
-                current_intensity = sound_map[x][y]
-                sound_map[x][y] = current_intensity + intensity
-                
-                # Continue propagation to neighbors
-                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:  # 4 directions
-                    nx, ny = x + dx, y + dy
+            # Instead of BFS, calculate intensity based on distance from source
+            for x in range(height):
+                for y in range(width):
+                    # Skip if it's the source position (will have max volume)
+                    if x == source.x and y == source.y:
+                        sound_map[x][y] += source.volume
+                        continue
                     
-                    if (0 <= nx < height and 0 <= ny < width and 
-                        (nx, ny) not in visited and grid[nx][ny] != 1):  # Not a wall in grid
-                        
-                        # Calculate attenuation based on distance and permeability
-                        new_intensity = intensity * 0.9  # Base attenuation
-                        
-                        # Apply wall permeability if neighbor is a wall object
-                        for wall in walls:
-                            if wall.x == nx and wall.y == ny:
-                                new_intensity *= wall.permeability
-                                break
-                                
-                        if new_intensity > 0.01:  # Only continue if significant
-                            queue.append((nx, ny, new_intensity))
-                            visited.add((nx, ny))
-    
-    # Apply wall permeability effects to sound map
-    for wall in walls:
-        if 0 <= wall.x < height and 0 <= wall.y < width:
-            sound_map[wall.x][wall.y] *= wall.permeability
+                    # Calculate Manhattan distance from source
+                    distance = abs(x - source.x) + abs(y - source.y)
+                    
+                    # Skip if beyond max propagation distance
+                    if distance > max_distance:
+                        continue
+                    
+                    # Calculate base intensity using inverse square law approximation
+                    # In 2D grid, we use inverse law (between inverse and inverse square)
+                    base_attenuation = source.volume / (1 + 0.5 * distance + 0.1 * distance**1.5)
+                    
+                    # Check if there's a direct path affected by walls
+                    path_attenuation = calculate_path_attenuation(
+                        source.x, source.y, x, y, grid, walls, source.frequency
+                    )
+                    
+                    # Final intensity is base attenuation modified by path effects
+                    intensity = base_attenuation * path_attenuation
+                    
+                    # Only add if above threshold
+                    if intensity > 0.01:
+                        sound_map[x][y] += intensity
     
     return sound_map
+
+
+def calculate_path_attenuation(start_x, start_y, end_x, end_y, grid, walls, frequency):
+    """
+    Calculate attenuation along the path from source to target considering obstacles.
+    Uses a simplified ray-tracing approach to account for obstacles in the path.
+    
+    Args:
+        start_x, start_y: Source position
+        end_x, end_y: Target position
+        grid: Grid world
+        walls: List of Wall objects
+        frequency: Frequency of the sound (for frequency-dependent attenuation)
+    
+    Returns:
+        Attenuation factor (0.0 to 1.0)
+    """
+    # For now, use a simple approach that checks if there's a wall directly between source and target
+    # This is a simplified ray-casting approach
+    dx = end_x - start_x
+    dy = end_y - start_y
+    
+    # Determine the direction and number of steps
+    steps = max(abs(dx), abs(dy))
+    if steps == 0:
+        return 1.0  # Same position
+    
+    # Calculate increments for each step
+    x_inc = dx / steps if steps != 0 else 0
+    y_inc = dy / steps if steps != 0 else 0
+    
+    current_attenuation = 1.0
+    
+    # Move along the path and apply attenuation for each obstacle encountered
+    for i in range(1, int(steps) + 1):
+        curr_x = int(round(start_x + x_inc * i))
+        curr_y = int(round(start_y + y_inc * i))
+        
+        # Check if this position is out of bounds
+        if not (0 <= curr_x < grid.shape[0] and 0 <= curr_y < grid.shape[1]):
+            continue
+        
+        # Check if this position is a wall in the grid
+        if grid[curr_x][curr_y] == 1:
+            # Find the corresponding wall object to get permeability
+            wall_permeability = 0.5  # Default permeability
+            for wall in walls:
+                if wall.x == curr_x and wall.y == curr_y:
+                    wall_permeability = wall.permeability
+                    break
+            
+            # Apply frequency-dependent attenuation
+            # Lower frequencies penetrate better than higher frequencies
+            freq_factor = 0.7 + 0.3 * (1.0 - frequency)  # Lower freq = less attenuation
+            current_attenuation *= wall_permeability * freq_factor
+    
+    return current_attenuation

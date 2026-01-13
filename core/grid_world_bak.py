@@ -160,25 +160,20 @@ class Agent:
     def _get_frequency_content_at_position(self, grid_world):
         """
         Get the dominant frequency content at the agent's position based on nearby sources.
-        This considers both the distance and volume of sources to determine which one is loudest.
+        This is a simplified approach - in a real implementation, we might consider
+        the contribution of multiple sources based on their distance and volume.
         """
         if grid_world is None or not grid_world.sound_sources:
             return 0.5  # Default frequency content
-
-        # Find the most prominent sound source at the agent's position based on perceived loudness
-        max_perceived_loudness = -1
-        dominant_frequency = 0.5
+        
+        # Find the closest sound source to determine frequency content
+        min_distance = float('inf')
+        closest_source_freq = 0.5
         
         for source in grid_world.sound_sources:
-            # Calculate Manhattan distance
-            distance = abs(self.x - source.x) + abs(self.y - source.y)
-            
-            # Calculate perceived loudness based on distance and source volume
-            # Using inverse relationship similar to our sound propagation
-            perceived_loudness = source.volume / (1 + 0.5 * distance + 0.1 * distance**1.5)
-            
-            if perceived_loudness > max_perceived_loudness:
-                max_perceived_loudness = perceived_loudness
-                dominant_frequency = source.frequency
+            distance = abs(self.x - source.x) + abs(self.y - source.y)  # Manhattan distance
+            if distance < min_distance:
+                min_distance = distance
+                closest_source_freq = source.frequency
                 
-        return dominant_frequency
+        return closest_source_freq
