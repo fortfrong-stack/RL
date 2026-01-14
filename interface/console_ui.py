@@ -164,10 +164,33 @@ def get_action_name(action):
     return names[action] if 0 <= action < len(names) else "UNKNOWN"
 
 
+class ResourceManager:
+    """Manages resources to ensure proper cleanup."""
+    
+    def __init__(self):
+        self.resources = []
+    
+    def register_resource(self, resource, cleanup_func):
+        """Register a resource with its cleanup function."""
+        self.resources.append((resource, cleanup_func))
+    
+    def cleanup_all(self):
+        """Clean up all registered resources."""
+        for resource, cleanup_func in reversed(self.resources):
+            try:
+                cleanup_func(resource)
+            except Exception as e:
+                print(f"Error cleaning up resource: {e}")
+        self.resources.clear()
+
+
 def main_menu():
     """
     Main menu for the console interface.
     """
+    # Initialize resource manager
+    resource_manager = ResourceManager()
+    
     while True:
         print("\n=== Sound Navigation System ===")
         print("1. Test environment interactively")
@@ -211,6 +234,8 @@ def main_menu():
                 print("Invalid input.")
         elif choice == 3:
             print("Goodbye!")
+            # Cleanup resources before exiting
+            resource_manager.cleanup_all()
             break
         else:
             print("Invalid choice. Please select 1, 2, or 3.")
