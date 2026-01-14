@@ -11,6 +11,7 @@ from typing import Optional
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from utils.environment_gen import generate_random_environment, manual_environment_setup
+from rl.unified_training_system import UnifiedTrainingSystem
 from rl.training import train_task, evaluate_agent, train_all_tasks
 from interface.console_ui import main_menu
 
@@ -33,8 +34,8 @@ def get_observation_size(task_type: int) -> int:
 def main():
     """Main function to handle command-line arguments and execute the appropriate mode."""
     parser = argparse.ArgumentParser(description='Sound-Based Navigation System')
-    parser.add_argument('--mode', choices=['train', 'test'], required=True,
-                        help='Mode: train or test')
+    parser.add_argument('--mode', choices=['train', 'test', 'enhanced'], required=True,
+                        help='Mode: train, test, or enhanced')
     parser.add_argument('--task', type=int, choices=[1, 2, 3], required=True,
                         help='Task type: 1-Find all sources, 2-Find quietest place, 3-Follow moving source')
     parser.add_argument('--setup', choices=['random', 'manual'], default='random',
@@ -43,6 +44,8 @@ def main():
                         help='Number of episodes for training (default: 1000)')
     parser.add_argument('--model-path', type=str,
                         help='Path to save/load model')
+    parser.add_argument('--enhanced-method', choices=['curriculum', 'tuning', 'monitoring', 'transfer', 'all'],
+                        help='Enhanced training method to use (for enhanced mode)')
     
     args = parser.parse_args()
     
@@ -55,6 +58,50 @@ def main():
         )
         
         print(f"Evaluating trained agent for Task {args.task}...")
+        evaluate_agent(agent, args.task, num_episodes=5)
+        
+    elif args.mode == 'enhanced':
+        print(f"Running enhanced training for Task {args.task}...")
+        system = UnifiedTrainingSystem()
+        
+        if args.enhanced_method == 'curriculum':
+            agent, stats = system.curriculum_training(
+                task_type=args.task,
+                total_episodes=args.episodes
+            )
+        elif args.enhanced_method == 'tuning':
+            tuner = system.hyperparameter_tuning(args.task, n_trials=min(20, args.episodes//50))
+            agent, stats = system.train_with_best_params(args.task, num_episodes=args.episodes)
+        elif args.enhanced_method == 'monitoring':
+            agent, stats = system.enhanced_training_with_monitoring(
+                task_type=args.task,
+                num_episodes=args.episodes
+            )
+        elif args.enhanced_method == 'transfer':
+            # For transfer learning, we need a sequence of tasks
+            task_sequence = [args.task]  # We can extend this to include related tasks
+            agents = system.transfer_learning_training(task_sequence, episodes_per_task=args.episodes)
+            agent = agents[args.task]
+            # Note: For transfer learning, we might want to define related tasks
+        elif args.enhanced_method == 'all':
+            agent, stats = system.run_comprehensive_training(
+                task_type=args.task,
+                use_curriculum=True,
+                use_tuning=True,
+                num_episodes=args.episodes,
+                save_detailed=True
+            )
+        else:
+            # Default to comprehensive training if no specific method is chosen
+            agent, stats = system.run_comprehensive_training(
+                task_type=args.task,
+                use_curriculum=True,
+                use_tuning=True,
+                num_episodes=args.episodes,
+                save_detailed=True
+            )
+        
+        print(f"Evaluating enhanced trained agent for Task {args.task}...")
         evaluate_agent(agent, args.task, num_episodes=5)
         
     elif args.mode == 'test':
