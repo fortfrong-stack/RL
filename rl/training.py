@@ -1,5 +1,5 @@
 """
-Training module for DQN agents on sound-based navigation tasks.
+Enhanced training module for DQN agents on sound-based navigation tasks with improved reward normalization.
 """
 
 try:
@@ -48,7 +48,7 @@ def get_observation_size(task_type):
 
 class TrainingStats:
     """
-    Class to collect and manage training statistics.
+    Class to collect and manage training statistics for enhanced tasks.
     """
     def __init__(self, task_type):
         self.task_type = task_type
@@ -57,6 +57,7 @@ class TrainingStats:
         self.episode_successes = []
         self.epsilon_values = []
         self.loss_values = []
+        self.reward_stats = []  # Track reward statistics
         self.timestamp = datetime.now().isoformat()
         
     def add_episode_data(self, reward, length, success, epsilon):
@@ -82,6 +83,21 @@ class TrainingStats:
             loss: Loss value from the training step
         """
         self.loss_values.append(loss)
+        
+    def add_reward_stats(self, avg_reward, min_reward, max_reward):
+        """
+        Add reward statistics for monitoring.
+        
+        Args:
+            avg_reward: Average reward per step
+            min_reward: Minimum reward in episode
+            max_reward: Maximum reward in episode
+        """
+        self.reward_stats.append({
+            'avg_reward': avg_reward,
+            'min_reward': min_reward,
+            'max_reward': max_reward
+        })
         
     def get_summary(self):
         """
@@ -112,6 +128,7 @@ class TrainingStats:
         stats_dict['episode_lengths'] = self.episode_lengths
         stats_dict['episode_successes'] = self.episode_successes
         stats_dict['epsilon_values'] = self.epsilon_values
+        stats_dict['reward_stats'] = self.reward_stats
         
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, 'w') as f:
@@ -127,8 +144,8 @@ class TrainingStats:
         try:
             import matplotlib.pyplot as plt
             
-            fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-            fig.suptitle(f'Training Statistics - Task {self.task_type}')
+            fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+            fig.suptitle(f'Enhanced Training Statistics - Task {self.task_type}')
             
             # Plot rewards over episodes
             axes[0, 0].plot(self.episode_rewards)
@@ -143,10 +160,10 @@ class TrainingStats:
             axes[0, 1].set_ylabel('Steps')
             
             # Plot epsilon decay
-            axes[1, 0].plot(self.epsilon_values)
-            axes[1, 0].set_title('Epsilon Decay')
-            axes[1, 0].set_xlabel('Episode')
-            axes[1, 0].set_ylabel('Epsilon')
+            axes[0, 2].plot(self.epsilon_values)
+            axes[0, 2].set_title('Epsilon Decay')
+            axes[0, 2].set_xlabel('Episode')
+            axes[0, 2].set_ylabel('Epsilon')
             
             # Plot success rate over time (rolling window)
             if len(self.episode_successes) >= 10:
@@ -155,15 +172,41 @@ class TrainingStats:
                     window = self.episode_successes[i-10:i]
                     rolling_success.append(sum(window) / len(window))
                 
-                axes[1, 1].plot(rolling_success)
-                axes[1, 1].set_title('Rolling Success Rate (window=10)')
-                axes[1, 1].set_xlabel('Episode')
-                axes[1, 1].set_ylabel('Success Rate')
+                axes[1, 0].plot(rolling_success)
+                axes[1, 0].set_title('Rolling Success Rate (window=10)')
+                axes[1, 0].set_xlabel('Episode')
+                axes[1, 0].set_ylabel('Success Rate')
             else:
-                axes[1, 1].text(0.5, 0.5, 'Need more episodes for success rate plot', 
+                axes[1, 0].text(0.5, 0.5, 'Need more episodes for success rate plot', 
+                               horizontalalignment='center', verticalalignment='center',
+                               transform=axes[1, 0].transAxes)
+                axes[1, 0].set_title('Success Rate')
+            
+            # Plot loss values
+            if len(self.loss_values) > 0:
+                axes[1, 1].plot(self.loss_values)
+                axes[1, 1].set_title('Loss Values')
+                axes[1, 1].set_xlabel('Training Step')
+                axes[1, 1].set_ylabel('Loss')
+            else:
+                axes[1, 1].text(0.5, 0.5, 'No loss data available', 
                                horizontalalignment='center', verticalalignment='center',
                                transform=axes[1, 1].transAxes)
-                axes[1, 1].set_title('Success Rate')
+                axes[1, 1].set_title('Loss Values')
+                
+            # Plot average reward per step
+            if len(self.reward_stats) > 0:
+                avg_rewards = [stat['avg_reward'] for stat in self.reward_stats if stat['avg_reward'] is not None]
+                if avg_rewards:
+                    axes[1, 2].plot(avg_rewards)
+                    axes[1, 2].set_title('Avg Reward per Step')
+                    axes[1, 2].set_xlabel('Episode')
+                    axes[1, 2].set_ylabel('Avg Reward/Step')
+            else:
+                axes[1, 2].text(0.5, 0.5, 'No reward stats available', 
+                               horizontalalignment='center', verticalalignment='center',
+                               transform=axes[1, 2].transAxes)
+                axes[1, 2].set_title('Avg Reward per Step')
             
             plt.tight_layout()
             
@@ -179,7 +222,7 @@ class TrainingStats:
 
 def train_task(task_type, num_episodes=1000, save_model=True, model_path=None, save_stats=True, stats_path=None):
     """
-    Train a DQN agent for a specific task.
+    Train a DQN agent for a specific task using enhanced reward system.
     
     Args:
         task_type: Type of task (1, 2, or 3)
@@ -196,12 +239,18 @@ def train_task(task_type, num_episodes=1000, save_model=True, model_path=None, s
     obs_size = get_observation_size(task_type)
     action_size = 5  # up, down, left, right, stay
     
-    # Initialize agent
+    # Initialize agent with enhanced hyperparameters for better reward handling
     agent = DQNAgentWrapper(
         input_size=obs_size,
         output_size=action_size,
-        lr=0.001 if task_type == 1 else (0.0005 if task_type == 2 else 0.0008),  # Different learning rates
-        epsilon_decay=0.99 if task_type == 1 else (0.95 if task_type == 2 else 0.98),  # Different epsilon decays
+        lr=0.0005 if task_type == 1 else (0.0003 if task_type == 2 else 0.0004),  # Lower learning rates for stability
+        gamma=0.95,  # Slightly lower gamma for faster convergence
+        epsilon=1.0,
+        epsilon_decay=0.995 if task_type == 1 else (0.99 if task_type == 2 else 0.993),  # Adjusted epsilon decays
+        epsilon_min=0.01,
+        target_update_freq=200,  # Update target network less frequently
+        batch_size=64,  # Larger batch size for more stable updates
+        buffer_size=50000  # Larger buffer for better experience replay
     )
     
     # Initialize statistics collector
@@ -218,14 +267,15 @@ def train_task(task_type, num_episodes=1000, save_model=True, model_path=None, s
     
     # Training loop
     for episode in tqdm(range(num_episodes), desc=f"Training Task {task_type}", unit="episode"):
-        # Generate a random environment for this episode
-        env = generate_random_environment(task_type)
+        # Create enhanced environment for this episode
+        env = create_task_environment(task_type)
         
         # Get initial observation
         state = env.reset()
         
         total_reward = 0
         step_count = 0
+        episode_rewards = []  # Track individual step rewards for statistics
         
         while not env.done and step_count < env.max_steps:
             # Select action using epsilon-greedy
@@ -237,6 +287,10 @@ def train_task(task_type, num_episodes=1000, save_model=True, model_path=None, s
             # Store experience in replay buffer
             agent.remember(state, action, reward, next_state, done)
             
+            # Track reward statistics
+            total_reward += reward
+            episode_rewards.append(reward)
+            
             # Train the agent
             if len(agent.memory) > agent.batch_size:
                 loss = agent.replay()
@@ -245,19 +299,24 @@ def train_task(task_type, num_episodes=1000, save_model=True, model_path=None, s
             
             # Update state and tracking variables
             state = next_state
-            total_reward += reward
             step_count += 1
+        
+        # Calculate episode reward statistics
+        if episode_rewards:
+            avg_reward_per_step = np.mean(episode_rewards)
+            min_reward = np.min(episode_rewards)
+            max_reward = np.max(episode_rewards)
+            stats.add_reward_stats(avg_reward_per_step, min_reward, max_reward)
         
         # Determine if the episode was successful based on task type
         success = False
-        if hasattr(env, 'task'):
-            # Check if the task was completed successfully
+        if hasattr(env, 'found_sources'):  # EnhancedFindAllSourcesTask
             if task_type == 1:  # Find all sources
-                success = len(env.task.found_sources) == len(env.grid_world.sound_sources)
+                success = len(env.found_sources) == len(env.grid_world.sound_sources)
             elif task_type == 2:  # Find quietest place
-                if env.task.quietest_cell:
+                if env.quietest_cell:
                     agent_pos = env.agent.get_position()
-                    success = agent_pos == env.task.quietest_cell
+                    success = agent_pos == env.quietest_cell
             elif task_type == 3:  # Follow moving source
                 if env.grid_world.sound_sources:
                     source = env.grid_world.sound_sources[0]
@@ -294,7 +353,7 @@ def train_task(task_type, num_episodes=1000, save_model=True, model_path=None, s
 
 def evaluate_agent(agent, task_type, num_episodes=10, render=False):
     """
-    Evaluate a trained agent on a task.
+    Evaluate a trained agent on an enhanced task.
     
     Args:
         agent: Trained DQNAgentWrapper
@@ -318,8 +377,8 @@ def evaluate_agent(agent, task_type, num_episodes=10, render=False):
             render = False  # Disable rendering if initialization fails
     
     for episode in tqdm(range(num_episodes), desc=f"Evaluation Task {task_type}", unit="episode"):
-        # Generate a random environment for evaluation
-        env = generate_random_environment(task_type)
+        # Create enhanced environment for evaluation
+        env = create_task_environment(task_type)
         
         # Get initial observation
         state = env.reset()
@@ -348,7 +407,7 @@ def evaluate_agent(agent, task_type, num_episodes=10, render=False):
             step_count += 1
         
         total_rewards.append(total_reward)
-        print(f"Evaluation - Episode {episode + 1}, Total Reward: {total_reward:.2f}, Steps: {step_count}")
+        print(f"Enhanced Evaluation - Episode {episode + 1}, Total Reward: {total_reward:.2f}, Steps: {step_count}")
     
     # Close visualization if it was opened
     if render and viz:
