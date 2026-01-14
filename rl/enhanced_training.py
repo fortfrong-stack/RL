@@ -22,10 +22,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + '/..')
 try:
     from .dqn import DQNAgentWrapper
     from ..utils.environment_gen import generate_random_environment
-    from ..core.enhanced_tasks import create_enhanced_task_environment
+    from ..core.tasks import create_task_environment
 except ImportError:
     from rl.dqn import DQNAgentWrapper
-    from core.enhanced_tasks import create_enhanced_task_environment
+    from core.tasks import create_task_environment
     from utils.environment_gen import generate_random_environment
 
 from utils.audio_processing import get_audio_observation_features
@@ -269,7 +269,7 @@ def train_enhanced_task(task_type, num_episodes=1000, save_model=True, model_pat
     # Training loop
     for episode in tqdm(range(num_episodes), desc=f"Training Enhanced Task {task_type}", unit="episode"):
         # Create enhanced environment for this episode
-        env = create_enhanced_task_environment(task_type)
+        env = create_task_environment(task_type)
         
         # Get initial observation
         state = env.reset()
@@ -379,7 +379,7 @@ def evaluate_enhanced_agent(agent, task_type, num_episodes=10, render=False):
     
     for episode in tqdm(range(num_episodes), desc=f"Evaluation Enhanced Task {task_type}", unit="episode"):
         # Create enhanced environment for evaluation
-        env = create_enhanced_task_environment(task_type)
+        env = create_task_environment(task_type)
         
         # Get initial observation
         state = env.reset()

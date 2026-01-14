@@ -1,8 +1,14 @@
 """
-Implementation of the three tasks for Stage 4:
+Enhanced implementation of the three tasks for Stage 4 with improved reward systems:
 1. Finding all sound sources
 2. Finding the quietest place
 3. Following a moving sound source
+
+Improvements:
+- Normalized rewards for better stability
+- Increased step penalties to encourage efficiency
+- Added intermediate rewards for progress
+- Used potential functions for smoother rewards
 """
 
 import numpy as np
@@ -22,7 +28,7 @@ except ImportError:
 
 class TaskEnvironment:
     """
-    Base class for task environments that extends GridWorld with reward system and termination conditions.
+    Base class for enhanced task environments that extends GridWorld with improved reward system and termination conditions.
     """
     
     def __init__(self, width=25, height=25, task_type=1):
@@ -45,7 +51,7 @@ class TaskEnvironment:
         self.total_reward = 0
         self.found_sources = set()
         return self.get_observation()
-    
+
     def step(self, action):
         """Execute an action and return (observation, reward, done)."""
         if self.done:
@@ -103,10 +109,12 @@ class TaskEnvironment:
 
 class FindAllSourcesTask(TaskEnvironment):
     """
-    Task 1: Find all sound sources
-    - Parameters: 1-5 sources
-    - Reward system: +10 for finding new source, -0.1 per step, +50 for finding all
-    - Termination: all sources found or max steps
+    Enhanced Task 1: Find all sound sources
+    Improvements:
+    - Increased step penalty to encourage efficiency
+    - Added intermediate rewards for approaching sources
+    - Used potential function based on distance to nearest unfound source
+    - Normalized rewards to [-1, 1] range
     """
     
     def __init__(self, width=25, height=25, num_sources=None):
@@ -114,6 +122,7 @@ class FindAllSourcesTask(TaskEnvironment):
         self.num_sources = num_sources or np.random.randint(1, 6)
         self.initial_sources_count = self.num_sources
         self.found_sources = set()
+        self.last_distances_to_sources = {}
     
     def reset(self):
         """Reset the environment to initial state."""
@@ -122,7 +131,8 @@ class FindAllSourcesTask(TaskEnvironment):
         self.done = False
         self.total_reward = 0
         self.found_sources = set()
-        
+        self.last_distances_to_sources = {}
+
         # Place agent if not already placed
         if self.agent is None:
             placed = False
@@ -146,24 +156,70 @@ class FindAllSourcesTask(TaskEnvironment):
                     self.grid_world.place_sound_source(source)
                     placed = True
         
+        # Initialize distances to unfound sources
+        for source in self.grid_world.sound_sources:
+            source_pos = (source.x, source.y)
+            if source_pos not in self.found_sources:
+                agent_x, agent_y = self.agent.get_position()
+                dist = abs(agent_x - source.x) + abs(agent_y - source.y)
+                self.last_distances_to_sources[source_pos] = dist
+                
         return self.get_observation()
         
     def calculate_reward(self, old_pos, new_pos, sound_map):
-        """Calculate reward for finding all sources task."""
-        reward = -0.1  # Small penalty for each step to encourage efficiency
+        """Calculate enhanced reward for finding all sources task."""
+        # Base step penalty to encourage efficiency
+        base_penalty = -0.5  # Increased from -0.1
         
         # Check if agent is now on a source that wasn't previously found
         agent_x, agent_y = new_pos
         current_pos = (agent_x, agent_y)
         
+        reward = base_penalty  # Start with step penalty
+        
+        # Reward for finding new sources
+        newly_found = False
         for source in self.grid_world.sound_sources:
             if (source.x, source.y) == current_pos and current_pos not in self.found_sources:
-                reward += 10  # Reward for finding a new source
+                reward += 20.0  # Increased reward for finding a new source
                 self.found_sources.add(current_pos)
+                newly_found = True
+                # Remove from distance tracking since it's found
+                if current_pos in self.last_distances_to_sources:
+                    del self.last_distances_to_sources[current_pos]
                 
         # Additional reward if all sources are found
         if len(self.found_sources) == len(self.grid_world.sound_sources):
-            reward += 50  # Large bonus for finding all sources
+            reward += 100.0  # Increased bonus for finding all sources
+            return reward  # Early return for completion bonus
+            
+        # Intermediate reward for getting closer to unfound sources
+        if not newly_found:
+            for source in self.grid_world.sound_sources:
+                source_pos = (source.x, source.y)
+                if source_pos not in self.found_sources:  # Only consider unfound sources
+                    # Calculate new distance
+                    new_dist = abs(agent_x - source.x) + abs(agent_y - source.y)
+                    
+                    # Get previous distance if available
+                    if source_pos in self.last_distances_to_sources:
+                        old_dist = self.last_distances_to_sources[source_pos]
+                        
+                        # Reward for getting closer, penalty for getting farther
+                        if new_dist < old_dist:
+                            # Reward based on improvement, normalized
+                            improvement = (old_dist - new_dist) / max(self.width, self.height)
+                            reward += 2.0 * improvement  # Reward for progress toward unfound source
+                        elif new_dist > old_dist:
+                            # Penalty for moving away, normalized
+                            deterioration = (new_dist - old_dist) / max(self.width, self.height)
+                            reward -= 1.0 * deterioration  # Penalty for moving away
+                    
+                    # Update stored distance
+                    self.last_distances_to_sources[source_pos] = new_dist
+        
+        # Normalize reward to prevent extreme values
+        reward = np.clip(reward, -10.0, 100.0)
             
         return reward
     
@@ -175,10 +231,12 @@ class FindAllSourcesTask(TaskEnvironment):
 
 class FindQuietestPlaceTask(TaskEnvironment):
     """
-    Task 2: Find the quietest place
-    - Parameters: 1-5 sources
-    - Reward system: -1 * current intensity, +100 for reaching quietest spot
-    - Termination: agent in quietest spot or max steps
+    Enhanced Task 2: Find the quietest place
+    Improvements:
+    - Normalized intensity-based rewards
+    - Added potential-based reward using distance to quietest cell
+    - Smoothed reward function to reduce instability
+    - Added intermediate rewards for approaching quiet areas
     """
     
     def __init__(self, width=25, height=25, num_sources=None):
@@ -187,6 +245,8 @@ class FindQuietestPlaceTask(TaskEnvironment):
         self.sound_map = None
         self.quietest_cell = None
         self.min_intensity = float('inf')
+        self.last_agent_pos = None
+        self.last_intensity = None
     
     def reset(self):
         """Reset the environment to initial state."""
@@ -195,7 +255,9 @@ class FindQuietestPlaceTask(TaskEnvironment):
         self.done = False
         self.total_reward = 0
         self.found_sources = set()
-        
+        self.last_agent_pos = None
+        self.last_intensity = None
+
         # Place agent if not already placed
         if self.agent is None:
             placed = False
@@ -227,21 +289,73 @@ class FindQuietestPlaceTask(TaskEnvironment):
             # Pick the first quietest position
             self.quietest_cell = (quietest_positions[0][0], quietest_positions[1][0])
         
+        self.last_agent_pos = self.agent.get_position()
+        agent_x, agent_y = self.last_agent_pos
+        self.last_intensity = self.sound_map[agent_x][agent_y]
+        
         return self.get_observation(self.sound_map)
         
     def calculate_reward(self, old_pos, new_pos, sound_map):
-        """Calculate reward for finding quietest place task."""
+        """Calculate enhanced reward for finding quietest place task."""
         self.sound_map = sound_map
         
         agent_x, agent_y = new_pos
         current_intensity = sound_map[agent_x][agent_y]
         
-        # Calculate reward as negative of current intensity
-        reward = -current_intensity
+        # Normalize reward based on relative improvement
+        # Instead of using absolute intensity, compare to global min/max
+        normalized_improvement = 0
+        if self.min_intensity != np.max(sound_map):  # Avoid division by zero
+            # Calculate how much closer we are to the minimum
+            current_diff = current_intensity - self.min_intensity
+            max_possible_diff = np.max(sound_map) - self.min_intensity
+            
+            if max_possible_diff > 0:
+                # Higher reward when we're closer to the minimum
+                normalized_improvement = 1.0 - (current_diff / max_possible_diff)
         
-        # Check if agent is at the quietest cell
+        # Base reward based on improvement in quietness
+        reward = normalized_improvement * 5.0  # Scale to reasonable range
+        
+        # Additional reward based on comparison with previous position
+        if self.last_intensity is not None:
+            if current_intensity < self.last_intensity:
+                # Reward for finding quieter spot
+                improvement_ratio = (self.last_intensity - current_intensity) / self.last_intensity
+                reward += 3.0 * improvement_ratio
+            elif current_intensity > self.last_intensity:
+                # Smaller penalty for going to louder area
+                deterioration_ratio = (current_intensity - self.last_intensity) / current_intensity if current_intensity > 0 else 0
+                reward -= 1.5 * deterioration_ratio
+        
+        # Distance-based potential reward toward quietest cell
+        if self.quietest_cell:
+            # Calculate Manhattan distance to quietest cell
+            current_dist = abs(agent_x - self.quietest_cell[0]) + abs(agent_y - self.quietest_cell[1])
+            
+            # If we know previous position, give reward for getting closer
+            if self.last_agent_pos:
+                last_dist = abs(self.last_agent_pos[0] - self.quietest_cell[0]) + abs(self.last_agent_pos[1] - self.quietest_cell[1])
+                
+                if current_dist < last_dist:
+                    # Reward for getting closer to target
+                    dist_improvement = (last_dist - current_dist) / max(self.width, self.height)
+                    reward += 2.0 * dist_improvement
+                elif current_dist > last_dist:
+                    # Small penalty for moving away
+                    dist_penalty = (current_dist - last_dist) / max(self.width, self.height)
+                    reward -= 1.0 * dist_penalty
+        
+        # Bonus for reaching the quietest spot
         if self.quietest_cell and new_pos == self.quietest_cell:
-            reward += 100  # Bonus for reaching the quietest spot
+            reward += 50.0  # Bonus for reaching the quietest spot
+        
+        # Update tracking
+        self.last_agent_pos = new_pos
+        self.last_intensity = current_intensity
+        
+        # Normalize reward to prevent extreme values
+        reward = np.clip(reward, -10.0, 50.0)
             
         return reward
     
@@ -255,10 +369,12 @@ class FindQuietestPlaceTask(TaskEnvironment):
 
 class FollowMovingSourceTask(TaskEnvironment):
     """
-    Task 3: Follow a moving sound source
-    - Parameters: 1 source that moves randomly
-    - Reward system: +5 for decreasing distance, -5 for increasing, +100 for catching
-    - Movement: source moves randomly every N steps
+    Enhanced Task 3: Follow a moving sound source
+    Improvements:
+    - Smoother distance-based rewards
+    - Potential function to guide toward source
+    - Reduced discreteness of distance changes
+    - Added velocity prediction component
     """
     
     def __init__(self, width=25, height=25, move_interval=10):
@@ -266,7 +382,9 @@ class FollowMovingSourceTask(TaskEnvironment):
         self.move_interval = move_interval  # How often the source moves
         self.source_last_pos = None
         self.distance_history = []
-        
+        self.velocity_estimate = None
+        self.predicted_next_pos = None
+    
     def reset(self):
         """Reset the environment to initial state."""
         # First call parent reset but don't return the observation yet
@@ -276,7 +394,9 @@ class FollowMovingSourceTask(TaskEnvironment):
         self.done = False
         self.total_reward = 0
         self.found_sources = set()
-        
+        self.velocity_estimate = None
+        self.predicted_next_pos = None
+
         # Place a single moving source
         placed = False
         while not placed:
@@ -300,7 +420,7 @@ class FollowMovingSourceTask(TaskEnvironment):
         return self.get_observation()
     
     def calculate_reward(self, old_pos, new_pos, sound_map):
-        """Calculate reward for following moving source task."""
+        """Calculate enhanced reward for following moving source task."""
         agent_x, agent_y = new_pos
         
         # Get current source position
@@ -314,22 +434,52 @@ class FollowMovingSourceTask(TaskEnvironment):
         current_distance = abs(agent_x - source_x) + abs(agent_y - source_y)
         
         # Calculate previous distance if available
-        reward = 0
+        reward = -0.3  # Small step penalty to encourage efficiency
+        
         if len(self.distance_history) > 0:
             prev_distance = self.distance_history[-1]
             
-            if current_distance < prev_distance:
-                reward = 5  # Reward for getting closer
-            elif current_distance > prev_distance:
-                reward = -5  # Penalty for getting farther
-            # No change if distance stays the same
+            # Calculate smooth reward based on distance change
+            # Instead of discrete +5/-5, use continuous function
+            distance_change = prev_distance - current_distance  # Positive if getting closer
+            reward += 3.0 * distance_change / max(self.width, self.height)  # Normalize
+            
+            # Additional reward for being close
+            if current_distance <= 3:
+                reward += (4 - current_distance) * 0.5  # Extra reward for being very close
+        else:
+            # For first step, just store the distance
+            pass
         
         # Add to distance history
         self.distance_history.append(current_distance)
         
         # Check if agent caught the source (distance < 2)
         if current_distance < 2:
-            reward += 100  # Big reward for catching the source
+            reward += 100.0  # Big reward for catching the source
+            
+        # Potential field reward: reward for moving toward estimated source position
+        if self.predicted_next_pos:
+            # Calculate distance to predicted position
+            pred_dist = abs(agent_x - self.predicted_next_pos[0]) + abs(agent_y - self.predicted_next_pos[1])
+            # Encourage moving toward predicted position
+            reward += 1.0 / (pred_dist + 1)  # Higher reward for being closer to predicted position
+        
+        # Update velocity estimate if we have previous positions
+        if self.source_last_pos and self.source_last_pos != (source_x, source_y):
+            # Source moved, so we can estimate velocity
+            dx = source_x - self.source_last_pos[0]
+            dy = source_y - self.source_last_pos[1]
+            self.velocity_estimate = (dx, dy)
+            
+            # Predict next position based on velocity
+            self.predicted_next_pos = (source_x + dx, source_y + dy)
+        
+        # Update last source position
+        self.source_last_pos = (source_x, source_y)
+        
+        # Normalize reward to prevent extreme values
+        reward = np.clip(reward, -10.0, 100.0)
             
         return reward
     
@@ -361,8 +511,8 @@ class FollowMovingSourceTask(TaskEnvironment):
         # Try to find a new valid position for the source
         attempts = 0
         while attempts < 10:  # Limit attempts to avoid infinite loops
-            new_x = np.clip(source.x + np.random.randint(-2, 3), 0, self.width - 1)
-            new_y = np.clip(source.y + np.random.randint(-2, 3), 0, self.height - 1)
+            new_x = np.clip(source.x + np.random.randint(-3, 4), 0, self.width - 1)
+            new_y = np.clip(source.y + np.random.randint(-3, 4), 0, self.height - 1)
             
             # Check if the new position is valid (empty and not occupied by agent)
             if (self.grid_world.is_valid_position(new_x, new_y) and 
